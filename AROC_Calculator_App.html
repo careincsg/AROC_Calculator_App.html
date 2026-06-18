@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>AROC Calculator</title>
+
+<!-- ===== App-like install behavior (iPhone + Mac) ===== -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="AROC Calc" />
+<meta name="theme-color" content="#16171b" />
+
+<!-- Home Screen icon (iPhone) -->
+<link rel="apple-touch-icon" href="icon.png" />
+
+<!-- Web App Manifest (Mac "Add to Dock", Android/Chrome install) -->
+<link rel="manifest" href="manifest.webmanifest" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Spline Sans", system-ui, sans-serif;
+    background: #e9e9ec;
+    color: #1c1c1f;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ===================== STAGE ===================== */
+  .stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+    overflow: auto;
+    padding: 24px;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    background: radial-gradient(120% 120% at 50% 0%, color-mix(in oklab, #e9e9ec 80%, #fff) 0%, #e9e9ec 70%);
+  }
+
+  /* ===================== CALCULATOR ===================== */
+  .calc {
+    --c-surface: #ffffff;
+    --c-text: #1c1c1f;
+    --c-border: #2b2b2b;
+    --c-input: #92c353;
+    --c-input-ink: #14250a;
+    --c-computed: #d8d8d8;
+    --c-computed-ink: #2a2a2a;
+    --c-output: #9cc3e6;
+    --c-output-ink: #0d2a44;
+
+    --fs: 15px;
+    --row-h: 38px;
+    --pad-x: 12px;
+    --bw: 1.4px;
+    --label-w: 1.55fr;
+    --val-w: 1fr;
+
+    width: min(440px, 100%);
+    background: var(--c-surface);
+    color: var(--c-text);
+    font-size: var(--fs);
+    overflow: hidden;
+    border: var(--bw) solid var(--c-border);
+    box-shadow: 0 24px 60px -18px rgba(0,0,0,.45), 0 8px 20px -10px rgba(0,0,0,.3);
+  }
+
+  .sec-head {
+    font-weight: 700;
+    font-size: calc(var(--fs) + 2px);
+    text-align: center;
+    padding: calc(var(--row-h) * .22) var(--pad-x);
+    border-bottom: var(--bw) solid var(--c-border);
+  }
+  .section + .section .sec-head { border-top: var(--bw) solid var(--c-border); }
+
+  .row {
+    display: grid;
+    grid-template-columns: var(--label-w) var(--val-w);
+    align-items: stretch;
+    min-height: var(--row-h);
+  }
+  .cell {
+    display: flex;
+    align-items: center;
+    padding: 0 var(--pad-x);
+    min-height: var(--row-h);
+    border-bottom: var(--bw) solid var(--c-border);
+    border-right: var(--bw) solid var(--c-border);
+  }
+  .cell.label { color: var(--c-text); }
+  .cell.value {
+    justify-content: flex-end;
+    font-variant-numeric: tabular-nums;
+    border-right: none;
+    text-align: right;
+  }
+  .section:last-child .row:last-child .cell { border-bottom: none; }
+
+  .cell.value[data-kind="input"]    { background: var(--c-input);    color: var(--c-input-ink);    font-weight: 600; }
+  .cell.value[data-kind="computed"] { background: var(--c-computed); color: var(--c-computed-ink); }
+  .cell.value[data-kind="output"]   { background: var(--c-output);   color: var(--c-output-ink);   font-weight: 700; font-size: calc(var(--fs) + 4px); }
+
+  .cell.value input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: right;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .cell.value input::-webkit-outer-spin-button,
+  .cell.value input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .cell.value input[type=number] { -moz-appearance: textfield; }
+  .cell.value input:focus { box-shadow: inset 0 -2px 0 0 color-mix(in oklab, var(--c-input-ink) 45%, transparent); }
+  .affix { opacity: .65; padding-left: 1px; }
+
+  @media (max-width: 480px) {
+    .stage { padding: 16px; }
+    .calc { --fs: 14px; --row-h: 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="calc" id="calc"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const calc = document.getElementById("calc");
+
+  /* ---------------- model ---------------- */
+  const DEFAULT_MODEL = { strike: 60, premium: 10, dte: 184, goal: 22, contracts: 5 };
+
+  /* ---------------- calculator structure ---------------- */
+  const SECTIONS = [
+    { title: "ARORC Calculator", rows: [
+      { key: "strike",   label: "PUT=Strike, CALL=Basis", kind: "input",    fmt: "num" },
+      { key: "premium",  label: "Premium",                kind: "input",    fmt: "dec2" },
+      { key: "riskCap",  label: "Risk Cap",               kind: "computed", fmt: "dec2" },
+      { key: "rorc",     label: "RORC",                   kind: "computed", fmt: "pct1" },
+      { key: "dte",      label: "DTE",                    kind: "input",    fmt: "int" },
+      { key: "mult",     label: "Multiplier",             kind: "computed", fmt: "dec1" },
+      { key: "arorc",    label: "Annualized RORC",        kind: "output",   fmt: "pct1" },
+    ]},
+    { title: "Premium Finder", rows: [
+      { key: "goal",     label: "Goal ARORC",             kind: "input",    fmt: "pctIn" },
+      { key: "target",   label: "Target Premium",         kind: "output",   fmt: "usd2" },
+    ]},
+    { title: "Volume Calculator", rows: [
+      { key: "capPer",   label: "Capital/Contract",       kind: "computed", fmt: "usd0" },
+      { key: "profPer",  label: "Profit/Contract",        kind: "computed", fmt: "usd0" },
+      { key: "contracts",label: "Contracts",              kind: "input",    fmt: "int" },
+      { key: "totalCap", label: "Total Capital Required", kind: "output",   fmt: "usd0" },
+      { key: "totalProf",label: "Total Profit on Capital",kind: "output",   fmt: "usd0" },
+    ]},
+  ];
+
+  /* ---------------- load / save ---------------- */
+  const KEY = "aroc-calc-v1";
+  let model = load();
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY));
+      if (raw) return Object.assign({}, DEFAULT_MODEL, raw);
+    } catch (e) {}
+    return Object.assign({}, DEFAULT_MODEL);
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(model)); } catch (e) {} }
+
+  /* ---------------- math ---------------- */
+  function compute(m) {
+    const strike = num(m.strike), premium = num(m.premium), dte = num(m.dte) || 1;
+    const goal = num(m.goal) / 100, contracts = num(m.contracts);
+    const riskCap = strike - premium;
+    const rorc = riskCap !== 0 ? premium / riskCap : 0;
+    const mult = 365 / dte;
+    const arorc = rorc * mult;
+    const r = mult !== 0 ? goal / mult : 0;
+    const target = (1 + r) !== 0 ? (r * strike) / (1 + r) : 0;
+    const capPer = strike * 100;
+    const profPer = premium * 100;
+    return {
+      strike, premium, dte, goal: m.goal, contracts,
+      riskCap, rorc, mult, arorc, target,
+      capPer, profPer,
+      totalCap: capPer * contracts,
+      totalProf: profPer * contracts,
+    };
+  }
+  function num(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
+
+  /* ---------------- formatting ---------------- */
+  function fmtVal(fmt, v) {
+    switch (fmt) {
+      case "num":   return trim(v);
+      case "int":   return Math.round(v).toLocaleString("en-US");
+      case "dec1":  return v.toFixed(1);
+      case "dec2":  return v.toFixed(2);
+      case "pct1":  return (v * 100).toFixed(1) + "%";
+      case "usd0":  return "$" + Math.round(v).toLocaleString("en-US");
+      case "usd2":  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      default:      return String(v);
+    }
+  }
+  function trim(v) { return (Math.round(v * 100) / 100).toString(); }
+
+  /* ---------------- render ---------------- */
+  function buildCalc() {
+    calc.innerHTML = "";
+    SECTIONS.forEach((sec) => {
+      const s = document.createElement("div");
+      s.className = "section";
+
+      const h = document.createElement("div");
+      h.className = "sec-head";
+      h.textContent = sec.title;
+      s.appendChild(h);
+
+      sec.rows.forEach(r => {
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const lbl = document.createElement("div");
+        lbl.className = "cell label";
+        lbl.textContent = r.label;
+
+        const val = document.createElement("div");
+        val.className = "cell value";
+        val.dataset.kind = r.kind;
+
+        if (r.kind === "input") {
+          const inp = document.createElement("input");
+          inp.type = "text";
+          inp.inputMode = "decimal";
+          inp.id = "in-" + r.key;
+          inp.dataset.key = r.key;
+          val.appendChild(inp);
+          if (r.fmt === "pctIn") { const a = document.createElement("span"); a.className = "affix"; a.textContent = "%"; val.appendChild(a); }
+          if (r.fmt === "usd0" || r.fmt === "usd2") { const a = document.createElement("span"); a.className = "affix"; a.textContent = "$"; val.prepend(a); }
+        } else {
+          val.id = "out-" + r.key;
+        }
+
+        row.appendChild(lbl);
+        row.appendChild(val);
+        s.appendChild(row);
+      });
+
+      calc.appendChild(s);
+    });
+
+    calc.querySelectorAll("input[data-key]").forEach(inp => {
+      inp.addEventListener("input", () => {
+        model[inp.dataset.key] = inp.value;
+        recompute();
+        save();
+      });
+      inp.addEventListener("blur", () => { syncInputs(); });
+    });
+  }
+
+  function syncInputs() {
+    calc.querySelectorAll("input[data-key]").forEach(inp => {
+      const k = inp.dataset.key;
+      if (document.activeElement !== inp) inp.value = model[k];
+    });
+  }
+
+  function recompute() {
+    const c = compute(model);
+    SECTIONS.forEach(sec => sec.rows.forEach(r => {
+      if (r.kind === "input") return;
+      const el = document.getElementById("out-" + r.key);
+      if (el) el.textContent = fmtVal(r.fmt, c[r.key]);
+    }));
+  }
+
+  /* ---------------- init ---------------- */
+  buildCalc();
+  syncInputs();
+  recompute();
+})();
+</script>
+</body>
+</html>
