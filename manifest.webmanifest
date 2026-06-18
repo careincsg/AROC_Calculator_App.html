@@ -2,7 +2,7 @@
   "name": "AROC Calculator",
   "short_name": "AROC Calc",
   "description": "Annualized Return on Capital calculator with Premium Finder and Volume Calculator",
-  "start_url": "./AROC_Calculator_App.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e9e9ec",
   "theme_color": "#16171b",
