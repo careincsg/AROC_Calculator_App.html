@@ -152,12 +152,12 @@
   /* ---------------- calculator structure ---------------- */
   const SECTIONS = [
     { title: "ARORC Calculator", rows: [
-      { key: "strike",   label: "PUT=Strike, CALL=Basis", kind: "input",    fmt: "num" },
-      { key: "premium",  label: "Premium",                kind: "input",    fmt: "dec2" },
-      { key: "riskCap",  label: "Risk Cap",               kind: "computed", fmt: "dec2" },
-      { key: "rorc",     label: "RORC",                   kind: "computed", fmt: "pct1" },
+      { key: "strike",   label: "PUT=Strike, CALL=Basis/Spread", kind: "input",    fmt: "num" },
+      { key: "premium",  label: "Premium/Net Credit",                kind: "input",    fmt: "dec2" },
+      { key: "riskCap",  label: "Risk Capital",               kind: "computed", fmt: "dec2" },
+      { key: "rorc",     label: "RORC = Premium / Risk Cap",                   kind: "computed", fmt: "pct1" },
       { key: "dte",      label: "DTE",                    kind: "input",    fmt: "int" },
-      { key: "mult",     label: "Multiplier",             kind: "computed", fmt: "dec1" },
+      { key: "mult",     label: "Multiplier = 365 / DTE",             kind: "computed", fmt: "dec1" },
       { key: "arorc",    label: "Annualized RORC",        kind: "output",   fmt: "pct1" },
     ]},
     { title: "Premium Finder", rows: [
